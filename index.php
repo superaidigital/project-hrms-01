@@ -1,4 +1,9 @@
 <?php
+// ==========================================
+// ชื่อไฟล์: index.php
+// ที่อยู่ไฟล์: /index.php (Root Directory)
+// ==========================================
+
 // 1. เปิดโชว์ Error (ช่วยป้องกันหน้าจอขาว จะได้รู้ว่าพังที่ไหน) **ลบออกได้เมื่อระบบเสร็จสมบูรณ์**
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
@@ -15,6 +20,14 @@ require_once 'config/database.php';
 // 4. สร้างออบเจกต์ฐานข้อมูล
 $database = new Database();
 $db = $database->getConnection();
+
+// 🚨 [แก้ไขบั๊กที่ 1]: ป้องกัน Fatal Error หน้าจอขาว หากเชื่อมต่อฐานข้อมูลไม่สำเร็จ
+if ($db === null) {
+    die("<div style='text-align:center; margin-top:100px; font-family: sans-serif;'>
+            <h1 style='color:#e74c3c;'>เกิดข้อผิดพลาด! ไม่สามารถเชื่อมต่อฐานข้อมูลได้</h1>
+            <p>กรุณาตรวจสอบการตั้งค่าในไฟล์ <code>config/database.php</code> หรือตรวจสอบสถานะเซิร์ฟเวอร์ Database (MySQL)</p>
+         </div>");
+}
 
 // 5. รับค่า action จาก URL 
 $action = isset($_GET['action']) ? $_GET['action'] : '';
@@ -183,6 +196,13 @@ switch ($action) {
         require_once 'controllers/ManpowerController.php';
         $manpower = new ManpowerController($db);
         $manpower->delete();
+        break;
+
+    // 🌟 เพิ่มใหม่: Route สำหรับรับค่า AJAX สลับลำดับข้อมูล (Drag & Drop)
+    case 'manpower_reorder':
+        require_once 'controllers/ManpowerController.php';
+        $manpower = new ManpowerController($db);
+        $manpower->reorder();
         break;
 
     case 'search_employee':

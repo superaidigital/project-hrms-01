@@ -21,6 +21,25 @@ class AuthController {
     // ฟังก์ชันตรวจสอบข้อมูลเมื่อกดปุ่ม "เข้าสู่ระบบ"
     public function loginProcess() {
         if ($_SERVER["REQUEST_METHOD"] == "POST") {
+            
+            // 🛡️ [ป้องกัน Brute Force]: ตรวจสอบการล็อกอินผิดพลาดเกินกำหนด
+            if (!isset($_SESSION['login_attempts'])) {
+                $_SESSION['login_attempts'] = 0;
+            }
+            
+            // หากล็อกอินผิดเกิน 5 ครั้ง ให้รอ 5 นาที (300 วินาที)
+            if ($_SESSION['login_attempts'] >= 5) {
+                if (time() - $_SESSION['last_login_time'] < 300) {
+                    $_SESSION['message'] = "คุณกรอกรหัสผิดเกินกำหนด กรุณารอ 5 นาทีก่อนลองใหม่";
+                    $_SESSION['message_type'] = "danger";
+                    header("Location: index.php?action=login");
+                    exit();
+                } else {
+                    // รีเซ็ตการนับเมื่อพ้น 5 นาที
+                    $_SESSION['login_attempts'] = 0;
+                }
+            }
+
             $username = trim($_POST['username']);
             $password = $_POST['password'];
 
@@ -43,11 +62,19 @@ class AuthController {
 
                 // ตรวจสอบรหัสผ่านที่เข้ารหัสไว้
                 if (password_verify($password, $user['password'])) {
+                    
+                    // 🛡️ [ป้องกัน Session Fixation]: สร้าง Session ID ใหม่ทันทีเมื่อล็อกอินผ่าน
+                    session_regenerate_id(true);
+
                     // สร้าง Session หลังล็อกอินสำเร็จ
                     $_SESSION['user_id'] = $user['id'];
                     $_SESSION['username'] = $user['username'];
                     $_SESSION['full_name'] = $user['full_name'];
                     $_SESSION['role'] = $user['role'];
+                    
+                    // รีเซ็ตจำนวนครั้งที่ล็อกอินผิด
+                    unset($_SESSION['login_attempts']);
+                    unset($_SESSION['last_login_time']);
 
                     $_SESSION['message'] = "ยินดีต้อนรับเข้าสู่ระบบ";
                     $_SESSION['message_type'] = "success";
@@ -55,12 +82,20 @@ class AuthController {
                     header("Location: index.php?action=dashboard");
                     exit();
                 } else {
-                    $_SESSION['message'] = "รหัสผ่านไม่ถูกต้อง";
+                    // รหัสผ่านผิด เพิ่มจำนวนครั้ง
+                    $_SESSION['login_attempts']++;
+                    $_SESSION['last_login_time'] = time();
+                    
+                    $_SESSION['message'] = "รหัสผ่านไม่ถูกต้อง (ครั้งที่ " . $_SESSION['login_attempts'] . "/5)";
                     $_SESSION['message_type'] = "danger";
                     header("Location: index.php?action=login");
                     exit();
                 }
             } else {
+                // ไม่พบผู้ใช้ ก็เพิ่มจำนวนครั้งเช่นกัน ป้องกันการสุ่ม Username
+                $_SESSION['login_attempts']++;
+                $_SESSION['last_login_time'] = time();
+                
                 $_SESSION['message'] = "ไม่พบชื่อผู้ใช้งานนี้ในระบบ";
                 $_SESSION['message_type'] = "danger";
                 header("Location: index.php?action=login");
@@ -71,7 +106,11 @@ class AuthController {
 
     // ฟังก์ชันออกจากระบบ
     public function logout() {
+        // ล้างข้อมูล Session ทั้งหมด
+        $_SESSION = array();
         session_destroy();
+        
+        // เริ่ม Session ใหม่สำหรับแสดงข้อความแจ้งเตือน
         session_start();
         $_SESSION['message'] = "ออกจากระบบเรียบร้อยแล้ว";
         $_SESSION['message_type'] = "success";

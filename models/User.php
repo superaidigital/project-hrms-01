@@ -19,8 +19,8 @@ class User {
 
     // เพิ่มผู้ใช้งานใหม่
     public function create($data) {
-        // เช็คว่า Username ซ้ำหรือไม่
-        $checkQuery = "SELECT id FROM " . $this->table_name . " WHERE username = :username LIMIT 1";
+        // เช็คว่า Username ซ้ำหรือไม่ (ป้องกันตัวพิมพ์เล็กพิมพ์ใหญ่ซ้ำกัน)
+        $checkQuery = "SELECT id FROM " . $this->table_name . " WHERE LOWER(username) = LOWER(:username) LIMIT 1";
         $checkStmt = $this->conn->prepare($checkQuery);
         $checkStmt->bindParam(":username", $data['username']);
         $checkStmt->execute();

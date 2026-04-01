@@ -16,17 +16,33 @@ class EmployeeController {
         $this->db = $db;
     }
 
-    // ฟังก์ชันจัดการอัปโหลดรูปโปรไฟล์
+    // 🚨 [แก้ไขบั๊กที่ 4]: เพิ่มความปลอดภัยในการอัปโหลดรูปโปรไฟล์ (ตรวจ MIME Type)
     private function uploadAvatar($file) {
         if ($file['error'] == 0) {
             $target_dir = "uploads/";
             if (!file_exists($target_dir)) mkdir($target_dir, 0777, true);
-            $file_extension = pathinfo($file["name"], PATHINFO_EXTENSION);
-            $new_filename = uniqid() . '.' . strtolower($file_extension);
+            
+            $file_extension = strtolower(pathinfo($file["name"], PATHINFO_EXTENSION));
+            // 1. เช็คนามสกุลไฟล์แบบเข้มงวด
+            $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif'];
+            if (!in_array($file_extension, $allowed_extensions)) {
+                return null; // นามสกุลไม่อนุญาต
+            }
+
+            // 2. เช็ค MIME Type จากไฟล์จริง (ไม่ใช่แค่ชื่อนามสกุล)
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime_type = finfo_file($finfo, $file["tmp_name"]);
+            finfo_close($finfo);
+            $allowed_mimes = ['image/jpeg', 'image/png', 'image/gif'];
+            if (!in_array($mime_type, $allowed_mimes)) {
+                return null; // เนื้อหาไฟล์ไม่ใช่รูปภาพจริง
+            }
+
+            $new_filename = uniqid() . '.' . $file_extension;
             $target_file = $target_dir . $new_filename;
-            $check = getimagesize($file["tmp_name"]);
-            if($check !== false && in_array(strtolower($file_extension), ['jpg', 'jpeg', 'png', 'gif'])) {
-                if (move_uploaded_file($file["tmp_name"], $target_file)) return $new_filename;
+            
+            if (move_uploaded_file($file["tmp_name"], $target_file)) {
+                return $new_filename;
             }
         }
         return null;
@@ -233,6 +249,17 @@ class EmployeeController {
                     unlink("uploads/" . $oldData['avatar']); // ลบรูปเก่า
                 }
             }
+            
+            // 💡 [ข้อเสนอแนะ 5]: ฟีเจอร์ลบรูปโปรไฟล์
+            if(isset($_POST['remove_avatar']) && $_POST['remove_avatar'] == '1') {
+                if(!empty($oldData['avatar']) && file_exists("uploads/" . $oldData['avatar'])) {
+                    unlink("uploads/" . $oldData['avatar']);
+                }
+                $avatar_filename = null; // บังคับให้เป็น null เพื่อลบออกจาก DB
+            } elseif ($avatar_filename === null && isset($oldData['avatar'])) {
+               // ถ้าไม่ได้อัพโหลดรูปใหม่ และไม่ได้ติ๊กลบ ให้ใช้รูปเดิม
+               $avatar_filename = $oldData['avatar'];
+            }
 
             $data = [
                 'emp_code' => $new_position,
@@ -270,6 +297,7 @@ class EmployeeController {
     }
 
     // 7. ฟังก์ชันตัวช่วยสำหรับบันทึกข้อมูลที่เกี่ยวข้อง (Relations) แบบตารางย่อยต่างๆ
+    // 🚨 [แก้ไขบั๊กที่ 3]: เพิ่มการเช็ค is_array() ก่อนนำไปบันทึก
     private function saveRelations($model, $emp_id, $postData) {
         // ประวัติครอบครัว
         $familyData = [
@@ -281,29 +309,29 @@ class EmployeeController {
         $model->updateFamily($emp_id, $familyData);
         
         // ประวัติการศึกษา
-        if(isset($postData['edu_degree'])) {
+        if(isset($postData['edu_degree']) && is_array($postData['edu_degree'])) {
             $model->updateRelations("emp_education", $emp_id, [$postData['edu_degree'], $postData['edu_major'], $postData['edu_inst'], $postData['edu_year']], ['degree_level', 'major', 'institution', 'graduation_year']);
         }
         
         // ประวัติการฝึกอบรม
-        if(isset($postData['trn_course'])) {
+        if(isset($postData['trn_course']) && is_array($postData['trn_course'])) {
             $model->updateRelations("emp_training", $emp_id, [$postData['trn_course'], $postData['trn_inst'], $postData['trn_year']], ['course_name', 'institution', 'training_year']);
         }
         
         // ประวัติการทำงาน (ก.พ. 7)
-        if(isset($postData['wk_date'])) {
+        if(isset($postData['wk_date']) && is_array($postData['wk_date'])) {
             $model->updateRelations("emp_work_history", $emp_id, 
                 [$postData['wk_date'], $postData['wk_order'], $postData['wk_pos'], $postData['wk_num'], $postData['wk_level'], $postData['wk_salary'], $postData['wk_agency'], $postData['wk_dept']], 
                 ['start_date', 'order_number', 'position_name', 'position_number', 'level', 'salary', 'agency', 'department']);
         }
         
         // ข้อมูลอื่นๆ
-        if(isset($postData['lv_year'])) $model->updateRelations("emp_leave", $emp_id, [$postData['lv_year'], $postData['lv_sick'], $postData['lv_personal'], $postData['lv_vacation'], $postData['lv_late']], ['leave_year', 'sick_leave', 'personal_leave', 'vacation_leave', 'late_count']);
-        if(isset($postData['act_pos'])) $model->updateRelations("emp_acting", $emp_id, [$postData['act_pos'], $postData['act_order'], $postData['act_date']], ['acting_position', 'order_number', 'start_date']);
-        if(isset($postData['ev_year'])) $model->updateRelations("emp_evaluation", $emp_id, [$postData['ev_year'], $postData['ev_round'], $postData['ev_score'], $postData['ev_level']], ['eval_year', 'eval_round', 'score_percent', 'result_level']);
-        if(isset($postData['dec_name'])) $model->updateRelations("emp_decoration", $emp_id, [$postData['dec_name'], $postData['dec_year'], $postData['dec_info']], ['decor_name', 'received_year', 'gazette_info']);
-        if(isset($postData['dis_date'])) $model->updateRelations("emp_disciplinary", $emp_id, [$postData['dis_date'], $postData['dis_type'], $postData['dis_desc']], ['incident_date', 'punishment_type', 'description']);
-        if(isset($postData['lic_name'])) $model->updateRelations("emp_license", $emp_id, [$postData['lic_name'], $postData['lic_num'], $postData['lic_issue'], $postData['lic_expire']], ['license_name', 'license_number', 'issue_date', 'expiry_date']);
+        if(isset($postData['lv_year']) && is_array($postData['lv_year'])) $model->updateRelations("emp_leave", $emp_id, [$postData['lv_year'], $postData['lv_sick'], $postData['lv_personal'], $postData['lv_vacation'], $postData['lv_late']], ['leave_year', 'sick_leave', 'personal_leave', 'vacation_leave', 'late_count']);
+        if(isset($postData['act_pos']) && is_array($postData['act_pos'])) $model->updateRelations("emp_acting", $emp_id, [$postData['act_pos'], $postData['act_order'], $postData['act_date']], ['acting_position', 'order_number', 'start_date']);
+        if(isset($postData['ev_year']) && is_array($postData['ev_year'])) $model->updateRelations("emp_evaluation", $emp_id, [$postData['ev_year'], $postData['ev_round'], $postData['ev_score'], $postData['ev_level']], ['eval_year', 'eval_round', 'score_percent', 'result_level']);
+        if(isset($postData['dec_name']) && is_array($postData['dec_name'])) $model->updateRelations("emp_decoration", $emp_id, [$postData['dec_name'], $postData['dec_year'], $postData['dec_info']], ['decor_name', 'received_year', 'gazette_info']);
+        if(isset($postData['dis_date']) && is_array($postData['dis_date'])) $model->updateRelations("emp_disciplinary", $emp_id, [$postData['dis_date'], $postData['dis_type'], $postData['dis_desc']], ['incident_date', 'punishment_type', 'description']);
+        if(isset($postData['lic_name']) && is_array($postData['lic_name'])) $model->updateRelations("emp_license", $emp_id, [$postData['lic_name'], $postData['lic_num'], $postData['lic_issue'], $postData['lic_expire']], ['license_name', 'license_number', 'issue_date', 'expiry_date']);
     }
 
     // 8. อัปเดตสถานะการทำงาน (กรณีไม่ได้ใช้ AJAX)
@@ -411,7 +439,7 @@ class EmployeeController {
         exit();
     }
 
-    // 12. ส่งออกรายชื่อบุคลากรเป็นไฟล์ Excel (.xls) 🌟 (เพิ่มโค้ดให้สมบูรณ์แล้ว)
+    // 12. ส่งออกรายชื่อบุคลากรเป็นไฟล์ Excel (.xls) 🌟
     public function exportExcel() {
         $query = "SELECT e.*, w.position_name AS position, w.department, w.level, m.employee_type 
                   FROM employees e

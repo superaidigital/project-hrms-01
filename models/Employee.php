@@ -109,8 +109,8 @@ class Employee {
                   SET emp_code=:emp_code, national_id=:national_id, prefix=:prefix, gender=:gender, 
                       dob=:dob, first_name=:first_name, last_name=:last_name, phone=:phone, email=:email";
         
-        // อัปเดตรูปภาพเฉพาะเมื่อมีการอัปโหลดรูปใหม่มา
-        if(isset($data['avatar']) && $data['avatar'] !== null) {
+        // อัปเดตรูปภาพเฉพาะเมื่อมีการอัปโหลดรูปใหม่มา (หรือสั่งลบโดยส่ง null)
+        if(array_key_exists('avatar', $data)) {
             $query .= ", avatar=:avatar";
         }
         
@@ -128,7 +128,7 @@ class Employee {
         $stmt->bindParam(":email", $data['email']);
         $stmt->bindParam(":id", $id);
         
-        if(isset($data['avatar']) && $data['avatar'] !== null) {
+        if(array_key_exists('avatar', $data)) {
             $stmt->bindParam(":avatar", $data['avatar']);
         }
 
@@ -191,14 +191,17 @@ class Employee {
 
     // เปิด/ปิดการใช้งานระบบบัญชี (Active / Inactive)
     public function toggleActive($id, $status) {
-        // ตรวจสอบก่อนว่าตารางมีคอลัมน์ is_active หรือไม่ ถ้าไม่มีอาจจะต้องข้ามหรือสร้างคอลัมน์
         try {
+            // อย่าลืมรันคำสั่ง SQL เพิ่มคอลัมน์นี้ในฐานข้อมูล: 
+            // ALTER TABLE `employees` ADD `is_active` TINYINT(1) NOT NULL DEFAULT '1' AFTER `status`;
             $query = "UPDATE " . $this->table_name . " SET is_active = :status WHERE id = :id";
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(":status", $status);
             $stmt->bindParam(":id", $id);
             return $stmt->execute();
         } catch(PDOException $e) {
+            // หากเกิด Error (เช่น ตารางไม่มีคอลัมน์) จะเข้า catch ป้องกันหน้าจอขาว
+            error_log("Error toggling employee active status: " . $e->getMessage());
             return false;
         }
     }
@@ -257,8 +260,8 @@ class Employee {
             $delStmt->bindParam(":emp_id", $emp_id);
             $delStmt->execute();
 
-            // 2. ถ้าไม่มีข้อมูลส่งมาเลย ให้จบการทำงาน
-            if(empty($dataArrays) || empty($dataArrays[0])) return true;
+            // 2. ถ้าไม่มีข้อมูลส่งมาเลย หรือข้อมูลชุดแรกไม่ใช่ Array ให้จบการทำงาน ป้องกันบั๊ก Fatal Error
+            if(empty($dataArrays) || !isset($dataArrays[0]) || !is_array($dataArrays[0])) return true;
 
             // 3. วนลูปบันทึกข้อมูลใหม่ทีละแถว
             $rowCount = count($dataArrays[0]); // จำนวนแถวที่เพิ่มเข้ามา
@@ -267,7 +270,10 @@ class Employee {
                 // เช็คว่าแถวนี้ว่างทุกช่องไหม (ถ้าช่องข้อมูลว่างหมด ให้ข้ามไป ไม่บันทึกขยะ)
                 $isEmptyRow = true;
                 foreach($dataArrays as $colData) {
-                    if(!empty(trim($colData[$i]))) $isEmptyRow = false;
+                    if(isset($colData[$i]) && !empty(trim($colData[$i]))) {
+                        $isEmptyRow = false;
+                        break;
+                    }
                 }
                 if($isEmptyRow) continue;
 
@@ -289,6 +295,7 @@ class Employee {
             return true;
         } catch(PDOException $e) {
             // กรณีตารางยังไม่ถูกสร้างในฐานข้อมูล ให้ข้ามการ Error ไป
+            error_log("Error updating relations for table {$table_name}: " . $e->getMessage());
             return false; 
         }
     }

@@ -1,11 +1,16 @@
-<!-- สิ้นสุดเนื้อหาหลัก (ถูกแทรกมาจาก View ต่างๆ) -->
-            </div> <!-- End main-container -->
+<?php
+// ==========================================
+// ชื่อไฟล์: footer.php
+// ที่อยู่ไฟล์: views/layout/footer.php
+// ==========================================
+?>
+            </main> <!-- End main-content -->
             
             <!-- Footer Section -->
-            <footer class="mt-auto py-4 px-4 border-top bg-white bg-opacity-50">
-                <div class="container-fluid d-flex flex-column flex-md-row justify-content-between align-items-center text-muted" style="font-size: 0.85rem;">
+            <footer class="bg-white border-top py-4 px-4 mt-auto">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center text-muted" style="font-size: 0.85rem;">
                     <div class="mb-2 mb-md-0">
-                        &copy; <?= date('Y'); ?> <strong>HRMS Sisaket</strong>. All rights reserved.
+                        &copy; <?= date('Y'); ?> <strong class="text-teal">HRMS Sisaket</strong>. All rights reserved.
                     </div>
                     <div>
                         องค์การบริหารส่วนจังหวัดศรีสะเกษ
@@ -13,121 +18,79 @@
                 </div>
             </footer>
             
-        </div> <!-- End page-content -->
+        </div> <!-- End content-wrapper -->
     </div> <!-- End wrapper -->
 
     <!-- Bootstrap 5 Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- Script ควบคุมระบบทั้งหมด -->
+    <!-- Core System Scripts -->
     <script>
-        // 1. ==========================================
-        // แก้ปัญหา Modal จอเทา / กดอะไรไม่ได้เลยบนหน้าจอ
-        // ==========================================
         document.addEventListener('DOMContentLoaded', function() {
-            // ย้าย Modal ทั้งหมดไปไว้ที่ <body> ตั้งแต่โหลดเว็บเสร็จ
-            const modals = document.querySelectorAll('.modal');
-            modals.forEach(modal => {
-                document.body.appendChild(modal);
-            });
-        });
-
-        // Failsafe: กวาดล้างฉากหลัง (Backdrop) ที่อาจค้างอยู่และบล็อกการคลิกหน้าจอ
-        document.addEventListener('hidden.bs.modal', function () {
-            // เช็คว่าถ้าไม่มี Modal ไหนเปิดอยู่แล้ว
-            if (document.querySelectorAll('.modal.show').length === 0) {
-                // ปลดล็อคการเลื่อนหน้าจอ
-                document.body.classList.remove('modal-open');
-                document.body.style.overflow = '';
-                document.body.style.paddingRight = '';
-                
-                // ค้นหาและลบฉากสีดำใสๆ (backdrop) ที่ค้างอยู่ออกให้หมด
-                const backdrops = document.querySelectorAll('.modal-backdrop');
-                backdrops.forEach(bg => bg.remove());
-            }
-        });
-
-        // 2. ==========================================
-        // โหลดสถานะเมนูจาก LocalStorage (ความจำของเบราว์เซอร์)
-        // ==========================================
-        document.addEventListener('DOMContentLoaded', () => {
-            if (window.innerWidth > 992) {
-                const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
-                if (isCollapsed) {
-                    document.getElementById('sidebar').classList.add('collapsed');
-                    document.getElementById('page-content').classList.add('expanded');
-                }
-            }
-        });
-
-        // 3. ==========================================
-        // ฟังก์ชันสลับการ ย่อ/ขยาย Sidebar
-        // ==========================================
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const pageContent = document.getElementById('page-content');
-            const overlay = document.getElementById('sidebar-overlay');
             
-            if (window.innerWidth <= 992) {
-                // สำหรับมือถือ/แท็บเล็ต
-                sidebar.classList.toggle('mobile-show');
-                overlay.classList.toggle('mobile-show');
-            } else {
-                // สำหรับคอมพิวเตอร์ Desktop
-                sidebar.classList.toggle('collapsed');
-                pageContent.classList.toggle('expanded');
-                
-                // บันทึกสถานะลงใน Browser
-                const isCollapsed = sidebar.classList.contains('collapsed');
-                localStorage.setItem('sidebarCollapsed', isCollapsed);
-            }
-        }
+            // 1. ลบคลาส preload ออก เพื่อให้แอนิเมชันเริ่มทำงานได้หลังจากจัดหน้าเสร็จแล้ว
+            // นี่คือหัวใจสำคัญที่ป้องกัน FOUC (เมนูกระตุกตอนโหลด)
+            setTimeout(() => {
+                document.body.classList.remove('preload');
+            }, 100);
 
-        // จัดการเมื่อมีการดึงขอบหน้าจอ (Resize) ป้องกัน UI เพี้ยน
-        window.addEventListener('resize', function() {
-            const sidebar = document.getElementById('sidebar');
-            const pageContent = document.getElementById('page-content');
-            const overlay = document.getElementById('sidebar-overlay');
+            // 2. จัดการเรื่อง Modal แก้ปัญหาจอดำ/จอเทากดไม่ได้
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => document.body.appendChild(modal));
 
-            if (window.innerWidth > 992) {
-                sidebar.classList.remove('mobile-show');
-                overlay.classList.remove('mobile-show');
-                
-                if(localStorage.getItem('sidebarCollapsed') === 'true') {
-                    sidebar.classList.add('collapsed');
-                    pageContent.classList.add('expanded');
+            document.addEventListener('hidden.bs.modal', function () {
+                if (document.querySelectorAll('.modal.show').length === 0) {
+                    document.body.classList.remove('modal-open');
+                    document.body.style.overflow = '';
+                    document.body.style.paddingRight = '';
+                    const backdrops = document.querySelectorAll('.modal-backdrop');
+                    backdrops.forEach(bg => bg.remove());
                 }
-            } else {
-                sidebar.classList.remove('collapsed');
-                pageContent.classList.remove('expanded');
-            }
-        });
+            });
 
-        // 4. ==========================================
-        // ฟังก์ชันเสริม: ปิดแจ้งเตือนอัตโนมัติ และเปิดใช้งาน Tooltips
-        // ==========================================
-        document.addEventListener("DOMContentLoaded", function() {
-            // ตั้งเวลาให้ Alert (แจ้งเตือน) ค่อยๆ หายไปเองหลังจาก 5 วินาที
+            // 3. ฟังก์ชัน Toggle Sidebar (รองรับทั้ง PC และ Mobile)
+            const btnToggle = document.getElementById('btnToggleSidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            const htmlElement = document.documentElement;
+
+            function toggleMenu() {
+                if (window.innerWidth >= 992) {
+                    // Desktop: สลับคลาสที่ <html> tag
+                    const isCollapsed = htmlElement.classList.toggle('sidebar-collapsed');
+                    localStorage.setItem('sidebarCollapsed', isCollapsed);
+                } else {
+                    // Mobile: สไลด์เมนู
+                    htmlElement.classList.toggle('sidebar-show');
+                }
+            }
+
+            if (btnToggle) btnToggle.addEventListener('click', toggleMenu);
+            if (overlay) overlay.addEventListener('click', toggleMenu);
+
+            // 4. จัดการตอนย่อขยายขนาดจอเบราว์เซอร์
+            window.addEventListener('resize', function() {
+                if (window.innerWidth >= 992) {
+                    htmlElement.classList.remove('sidebar-show');
+                }
+            });
+
+            // 5. ปิด Alert อัตโนมัติใน 5 วินาที
             setTimeout(function() {
                 let alertElements = document.querySelectorAll('.alert:not(.alert-permanent)');
                 alertElements.forEach(function(alertNode) {
                     let bsAlert = bootstrap.Alert.getOrCreateInstance(alertNode);
-                    if (bsAlert) {
-                        bsAlert.close();
-                    }
+                    if (bsAlert) bsAlert.close();
                 });
             }, 5000);
-
-            // เปิดใช้งาน Bootstrap Tooltips
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
+            
+            // เปิดใช้งาน Tooltip
+            const tooltipTriggerList = document.querySelectorAll('[title]');
+            const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
         });
     </script>
 
-    <!-- ส่วนสำหรับให้ View อื่นๆ แทรกสคริปต์เพิ่มเติม (เช่น DataTable, Chart.js) -->
+    <!-- แทรก Script พิเศษเฉพาะบางหน้า (ถ้ามี) -->
     <?php if(isset($extra_scripts)) echo $extra_scripts; ?>
-
+    
 </body>
 </html>

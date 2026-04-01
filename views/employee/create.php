@@ -1,4 +1,16 @@
+<!-- 
+==========================================
+ชื่อไฟล์: create.php
+ที่อยู่ไฟล์: views/employee/create.php
+==========================================
+-->
 <?php require_once 'views/layout/header.php'; ?>
+<?php 
+// 🛡️ ฟังก์ชันช่วยเหลือสำหรับป้องกัน XSS 100%
+if (!function_exists('h')) {
+    function h($string) { return htmlspecialchars((string)($string ?? ''), ENT_QUOTES, 'UTF-8'); }
+}
+?>
 
 <!-- 🌟 เพิ่ม CSS ของ Tom Select สำหรับทำช่องค้นหา Dropdown 🌟 -->
 <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
@@ -14,8 +26,8 @@
                 <div class="card-body">
                     
                     <?php if(isset($_SESSION['message'])): ?>
-                        <div class="alert alert-<?= $_SESSION['message_type'] ?> alert-dismissible fade show" role="alert">
-                            <?= $_SESSION['message'] ?>
+                        <div class="alert alert-<?= h($_SESSION['message_type']) ?> alert-dismissible fade show" role="alert">
+                            <?= h($_SESSION['message']) ?>
                             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                         </div>
                         <?php unset($_SESSION['message']); unset($_SESSION['message_type']); ?>
@@ -104,8 +116,8 @@
                                                 <select name="emp_code" id="emp_code_select" required>
                                                     <option value="">-- พิมพ์ค้นหา หรือเลือกตำแหน่งที่ว่างในระบบ --</option>
                                                     <?php foreach($manpowers as $mp): ?>
-                                                        <option value="<?= htmlspecialchars($mp['position_number']) ?>">
-                                                            <?= htmlspecialchars($mp['position_number']) ?> - <?= htmlspecialchars($mp['position_name']) ?> (<?= htmlspecialchars($mp['employee_type']) ?>) [<?= htmlspecialchars($mp['department']) ?>]
+                                                        <option value="<?= h($mp['position_number']) ?>">
+                                                            <?= h($mp['position_number']) ?> - <?= h($mp['position_name']) ?> (<?= h($mp['employee_type'] ?? '') ?>) [<?= h($mp['department'] ?? 'ไม่ระบุ') ?>]
                                                         </option>
                                                     <?php endforeach; ?>
                                                 </select>
@@ -398,7 +410,7 @@
                         <select name="department" class="form-select" required>
                             <option value="">-- เลือกสำนัก/กอง --</option>
                             <?php foreach($departments as $dept): ?>
-                                <option value="<?= htmlspecialchars($dept['name']) ?>"><?= htmlspecialchars($dept['name']) ?></option>
+                                <option value="<?= h($dept['name']) ?>"><?= h($dept['name']) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -436,7 +448,7 @@
                         <select name="level" class="form-select" required>
                             <option value="">-- เลือกระดับ --</option>
                             <?php foreach($position_levels as $lvl): ?>
-                                <option value="<?= htmlspecialchars($lvl['name']) ?>"><?= htmlspecialchars($lvl['name']) ?> (<?= htmlspecialchars($lvl['type']) ?>)</option>
+                                <option value="<?= h($lvl['name']) ?>"><?= h($lvl['name']) ?> (<?= h($lvl['type']) ?>)</option>
                             <?php endforeach; ?>
                         </select>
                     </div>

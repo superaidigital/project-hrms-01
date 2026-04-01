@@ -1,49 +1,81 @@
 <?php
+// ==========================================
+// ชื่อไฟล์: DashboardController.php
+// ที่อยู่ไฟล์: controllers/DashboardController.php
+// ==========================================
+
 class DashboardController {
     private $db;
 
     public function __construct($db) {
         $this->db = $db;
-        
-        // ตรวจสอบสิทธิ์! ต้องล็อกอินก่อนถึงจะดูหน้านี้ได้
-        if (session_status() === PHP_SESSION_NONE) session_start();
-        if (!isset($_SESSION['user_id'])) {
-            header("Location: index.php?action=login");
-            exit();
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
         }
     }
 
     public function index() {
-        // ตัวแปรเก็บค่าสถิติต่างๆ
+        // 1. กำหนดค่าเริ่มต้นให้กับตัวแปร $stats ป้องกัน Error Undefined variable
         $stats = [
-            'total_employees' => 0,
-            'total_manpower' => 0,
-            'total_departments' => 0,
-            'total_users' => 0
+            'total_employees'   => 0,
+            'total_framework'   => 0,
+            'total_manpower'    => 0, // เพิ่มตัวแปรนี้เพื่อรองรับ view
+            'total_occupied'    => 0,
+            'total_vacant'      => 0,
+            'total_departments' => 0, // เพิ่มตัวแปรนี้เพื่อรองรับ view
+            'total_users'       => 0  // เพิ่มตัวแปรนี้เพื่อรองรับ view
         ];
 
         try {
-            // 1. นับจำนวนพนักงานทั้งหมด (สมมติตารางชื่อ employees)
-            $stmt = $this->db->query("SELECT COUNT(id) as total FROM employees");
-            $stats['total_employees'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+            // 2. ดึงจำนวนกรอบอัตรากำลังทั้งหมด (รวม ว่าง และ คนครอง)
+            $stmtMp = $this->db->query("
+                SELECT 
+                    COUNT(*) as total_framework,
+                    SUM(CASE WHEN status = 'occupied' THEN 1 ELSE 0 END) as total_occupied,
+                    SUM(CASE WHEN status = 'vacant' THEN 1 ELSE 0 END) as total_vacant
+                FROM manpower
+            ");
+            $mpData = $stmtMp->fetch(PDO::FETCH_ASSOC);
+            
+            if ($mpData) {
+                $stats['total_framework'] = $mpData['total_framework'] ?? 0;
+                $stats['total_manpower']  = $mpData['total_framework'] ?? 0; // เก็บค่าซ้ำไว้สำหรับรองรับตัวแปร 2 ชื่อ
+                $stats['total_occupied']  = $mpData['total_occupied'] ?? 0;
+                $stats['total_vacant']    = $mpData['total_vacant'] ?? 0;
+            }
 
-            // 2. นับจำนวนกรอบอัตรากำลังทั้งหมด (สมมติตารางชื่อ manpower)
-            $stmt = $this->db->query("SELECT COUNT(id) as total FROM manpower");
-            $stats['total_manpower'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+            // 3. ดึงจำนวนบุคลากรทั้งหมด (จากตาราง employees)
+            try {
+                $stmtEmp = $this->db->query("SELECT COUNT(*) FROM employees");
+                $stats['total_employees'] = $stmtEmp->fetchColumn();
+            } catch(PDOException $e) {
+                // ถ้ายังไม่มีตาราง ให้ใช้จำนวนคนครองจากกรอบแทนชั่วคราว
+                $stats['total_employees'] = $stats['total_occupied'];
+            }
 
-            // 3. นับจำนวนหน่วยงาน/แผนก (สมมติตารางชื่อ departments)
-            $stmt = $this->db->query("SELECT COUNT(id) as total FROM departments");
-            $stats['total_departments'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+            // 4. ดึงจำนวนส่วนราชการ (จากตาราง departments)
+            try {
+                $stmtDept = $this->db->query("SELECT COUNT(*) FROM departments");
+                $stats['total_departments'] = $stmtDept->fetchColumn();
+            } catch(PDOException $e) {
+                $stats['total_departments'] = 0;
+            }
 
-            // 4. นับจำนวนผู้ใช้งานในระบบ (ที่เปิดใช้งานอยู่)
-            $stmt = $this->db->query("SELECT COUNT(id) as total FROM users WHERE is_active = '1'");
-            $stats['total_users'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+            // 5. ดึงจำนวนผู้ใช้งานระบบ (จากตาราง users)
+            try {
+                $stmtUser = $this->db->query("SELECT COUNT(*) FROM users");
+                $stats['total_users'] = $stmtUser->fetchColumn();
+            } catch(PDOException $e) {
+                $stats['total_users'] = 0;
+            }
 
         } catch (PDOException $e) {
-            // กรณีที่บางตารางยังไม่ถูกสร้าง ให้ข้ามไปก่อนเพื่อไม่ให้หน้าจอขาว
+            // กรณีเชื่อมต่อ DB ดึงสถิติไม่ได้ ให้แจ้ง Error
+            $_SESSION['message'] = "ไม่สามารถดึงข้อมูลสถิติได้: " . $e->getMessage();
+            $_SESSION['message_type'] = "danger";
         }
 
-        // ดึงหน้า View มาแสดงผลพร้อมส่งข้อมูล $stats ไปให้
+        // 6. โหลดหน้า View และส่งตัวแปร $stats ไปให้
         require_once 'views/dashboard/index.php';
     }
 }
